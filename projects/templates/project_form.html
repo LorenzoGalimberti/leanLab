@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - LeanLab{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:list' %}">Progetti</a></li>
+        {% if project %}
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' project.pk %}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">Modifica</li>
+        {% else %}
+        <li class="breadcrumb-item active">Nuovo Progetto</li>
+        {% endif %}
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-folder-plus"></i> {{ title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Nome Progetto -->
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">
+                            {{ form.name.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.name.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Descrizione -->
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">
+                            {{ form.description.label }}
+                        </label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.description.errors }}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Descrivi brevemente gli obiettivi del progetto
+                        </small>
+                    </div>
+                    
+                    <!-- Progetto Attivo -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                {{ form.is_active.label }}
+                            </label>
+                        </div>
+                        <small class="form-text text-muted">
+                            I progetti non attivi sono nascosti dalla lista principale
+                        </small>
+                    </div>
+                    
+                    <!-- Bottoni -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> {{ button_text }}
+                        </button>
+                        <a href="{% if project %}{% url 'projects:detail' project.pk %}{% else %}{% url 'projects:list' %}{% endif %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Annulla
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
