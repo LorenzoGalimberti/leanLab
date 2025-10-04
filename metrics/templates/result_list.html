@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Risultati - {{ indicator.name }} - LeanLab{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:list' %}">Progetti</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' project.pk %}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}">{{ experiment.title }}</a></li>
+        <li class="breadcrumb-item active">Risultati {{ indicator.name }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">
+            <i class="bi bi-bar-chart-fill text-success"></i> {{ indicator.name }}
+        </h1>
+        <p class="text-muted mb-0">
+            Storico completo risultati
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'metrics:result_create' indicator.pk %}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Aggiungi Risultato
+        </a>
+        <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Torna all'Esperimento
+        </a>
+    </div>
+</div>
+
+<!-- Info Indicatore -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <p class="mb-1">{{ indicator.description|default:"Nessuna descrizione" }}</p>
+                <div class="mt-2">
+                    <span class="badge bg-info">{{ indicator.get_indicator_type_display }}</span>
+                    <span class="badge 
+                        {% if indicator.role == 'primary' %}bg-primary
+                        {% elif indicator.role == 'guardrail' %}bg-danger
+                        {% else %}bg-secondary{% endif %} ms-1">
+                        {{ indicator.get_role_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="p-3 bg-light rounded">
+                    <h4 class="mb-0 text-primary">+{{ indicator.target_uplift }}%</h4>
+                    <small class="text-muted">Target</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabella Risultati -->
+{% if results %}
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data</th>
+                        <th class="text-end">Control</th>
+                        <th class="text-end">Variant</th>
+                        <th class="text-end">Delta %</th>
+                        <th>Decisione</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td>
+                            <i class="bi bi-calendar3"></i>
+                            {{ result.measured_at|date:"d/m/Y" }}
+                        </td>
+                        <td class="text-end">{{ result.value_control|floatformat:2 }}</td>
+                        <td class="text-end">{{ result.value_variant|floatformat:2 }}</td>
+                        <td class="text-end">
+                            <span class="{% if result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <strong>{{ result.delta_percentage|floatformat:2 }}%</strong>
+                            </span>
+                        </td>
+                        <td>
+                            {% if result.decision_auto == 'persevere' %}
+                            <span class="badge badge-persevere">Persevere</span>
+                            {% elif result.decision_auto == 'pivot' %}
+                            <span class="badge badge-pivot">Pivot</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ result.decision_auto }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'metrics:result_edit' result.pk %}" 
+                                   class="btn btn-outline-secondary" title="Modifica">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'metrics:result_delete' result.pk %}" 
+                                   class="btn btn-outline-danger" title="Elimina">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% if result.notes %}
+                    <tr class="table-light">
+                        <td colspan="6">
+                            <small class="text-muted">
+                                <i class="bi bi-sticky"></i> <strong>Note:</strong> {{ result.notes }}
+                            </small>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-bar-chart" style="font-size: 3rem; color: #ddd;"></i>
+        <h4 class="mt-3 text-muted">Nessun risultato ancora</h4>
+        <p class="text-muted">Inizia ad aggiungere i dati raccolti dall'esperimento</p>
+        <a href="{% url 'metrics:result_create' indicator.pk %}" class="btn btn-success mt-2">
+            <i class="bi bi-plus-circle"></i> Aggiungi il primo risultato
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

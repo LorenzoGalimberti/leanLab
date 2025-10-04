@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - LeanLab{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:list' %}">Progetti</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' project.pk %}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}">{{ experiment.title }}</a></li>
+        <li class="breadcrumb-item active">
+            {% if result %}Modifica Risultato{% else %}Nuovo Risultato{% endif %}
+        </li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-bar-chart-fill"></i> {{ title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Info Indicatore -->
+                <div class="alert alert-light border mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">
+                                <i class="bi bi-graph-up text-primary"></i> {{ indicator.name }}
+                            </h6>
+                            <small class="text-muted">
+                                Target: <strong>+{{ indicator.target_uplift }}%</strong>
+                                <span class="badge 
+                                    {% if indicator.role == 'primary' %}bg-primary
+                                    {% elif indicator.role == 'guardrail' %}bg-danger
+                                    {% else %}bg-secondary{% endif %} ms-2">
+                                    {{ indicator.get_role_display }}
+                                </span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Data Misurazione -->
+                    <div class="mb-3">
+                        <label for="{{ form.measured_at.id_for_label }}" class="form-label">
+                            {{ form.measured_at.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.measured_at }}
+                        {% if form.measured_at.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.measured_at.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Valore Control -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.value_control.id_for_label }}" class="form-label">
+                                {{ form.value_control.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.value_control }}
+                            {% if form.value_control.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.value_control.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted d-block">
+                                {{ form.value_control.help_text }}
+                            </small>
+                        </div>
+                        
+                        <!-- Valore Variant -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.value_variant.id_for_label }}" class="form-label">
+                                {{ form.value_variant.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.value_variant }}
+                            {% if form.value_variant.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.value_variant.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted d-block">
+                                {{ form.value_variant.help_text }}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- Note -->
+                    <div class="mb-4">
+                        <label for="{{ form.notes.id_for_label }}" class="form-label">
+                            {{ form.notes.label }}
+                        </label>
+                        {{ form.notes }}
+                        {% if form.notes.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.notes.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Bottoni -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> {{ button_text }}
+                        </button>
+                        <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Annulla
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Info Card -->
+        <div class="card mt-3 border-info">
+            <div class="card-body">
+                <h6 class="text-info"><i class="bi bi-info-circle"></i> Come funziona</h6>
+                <p class="mb-2 small">Il sistema calcolerà automaticamente:</p>
+                <ul class="mb-0 small">
+                    <li><strong>Delta %:</strong> (Variant - Control) / Control × 100</li>
+                    <li><strong>Decisione:</strong> Persevere se delta ≥ target, altrimenti Pivot</li>
+                    <li><strong>Guardrail:</strong> Deve rimanere stabile (delta > -5%)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

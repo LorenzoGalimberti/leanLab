@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - {{ experiment.title }} - LeanLab{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:list' %}">Progetti</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' project.pk %}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}">{{ experiment.title }}</a></li>
+        <li class="breadcrumb-item active">Dashboard</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">
+            <i class="bi bi-graph-up-arrow text-info"></i> Dashboard Esperimento
+        </h1>
+        <p class="text-muted mb-0">{{ experiment.title }}</p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Torna al Dettaglio
+        </a>
+        <a href="#" class="btn btn-outline-primary">
+            <i class="bi bi-file-pdf"></i> Esporta PDF
+        </a>
+    </div>
+</div>
+
+<!-- Riepilogo Esperimento -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <h5 class="mb-2">
+                    <span class="badge 
+                        {% if experiment.status == 'running' %}bg-info
+                        {% elif experiment.status == 'completed' %}bg-success
+                        {% else %}bg-secondary{% endif %} me-2">
+                        {{ experiment.get_status_display }}
+                    </span>
+                    {% if experiment.decision != 'pending' %}
+                    <span class="badge 
+                        {% if experiment.decision == 'persevere' %}badge-persevere
+                        {% else %}badge-pivot{% endif %}">
+                        {{ experiment.get_decision_display }}
+                    </span>
+                    {% endif %}
+                </h5>
+                <div class="alert alert-light mb-0">
+                    <strong>Ipotesi:</strong> {{ experiment.hypothesis }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center p-3 bg-light rounded">
+                    <h2 class="text-primary mb-0">{{ indicators.count }}</h2>
+                    <p class="text-muted mb-0">Indicatori Monitorati</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Indicatori e Grafici -->
+{% if chart_data %}
+    {% for item in chart_data %}
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up"></i> {{ item.indicator.name }}
+                </h5>
+                <div>
+                    <span class="badge 
+                        {% if item.indicator.role == 'primary' %}bg-primary
+                        {% elif item.indicator.role == 'guardrail' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ item.indicator.get_role_display }}
+                    </span>
+                    <span class="badge bg-info ms-2">
+                        Target: +{{ item.indicator.target_uplift }}%
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if item.results %}
+            <!-- Tabella Risultati -->
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th class="text-end">Control</th>
+                            <th class="text-end">Variant</th>
+                            <th class="text-end">Delta %</th>
+                            <th>Decisione</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in item.results %}
+                        <tr>
+                            <td>{{ result.measured_at|date:"d/m/Y" }}</td>
+                            <td class="text-end">{{ result.value_control|floatformat:2 }}</td>
+                            <td class="text-end">{{ result.value_variant|floatformat:2 }}</td>
+                            <td class="text-end">
+                                <span class="{% if result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    <strong>{{ result.delta_percentage|floatformat:2 }}%</strong>
+                                </span>
+                            </td>
+                            <td>
+                                {% if result.decision_auto == 'persevere' %}
+                                <span class="badge badge-persevere">Persevere</span>
+                                {% elif result.decision_auto == 'pivot' %}
+                                <span class="badge badge-pivot">Pivot</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ result.decision_auto }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Placeholder per grafico futuro -->
+            <div class="alert alert-info mt-3">
+                <i class="bi bi-info-circle"></i> 
+                <strong>Grafico temporale:</strong> Verrà implementato nella prossima fase con visualizzazione trend.
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> 
+                Nessun risultato registrato per questo indicatore.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-graph-up" style="font-size: 4rem; color: #ddd;"></i>
+        <h4 class="mt-3 text-muted">Nessun dato disponibile</h4>
+        <p class="text-muted">Aggiungi indicatori e risultati per visualizzare la dashboard</p>
+        <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" class="btn btn-primary mt-2">
+            <i class="bi bi-arrow-left"></i> Torna all'esperimento
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

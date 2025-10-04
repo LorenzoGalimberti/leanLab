@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ project.name }} - LeanLab{% endblock %}
+{% block title %}{{ experiment.title }} - LeanLab{% endblock %}
 
 {% block content %}
 
@@ -8,153 +8,184 @@
 <nav aria-label="breadcrumb" class="mb-4">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{% url 'projects:list' %}">Progetti</a></li>
-        <li class="breadcrumb-item active">{{ project.name }}</li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' project.pk %}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ experiment.title }}</li>
     </ol>
 </nav>
 
-<!-- Header Progetto -->
-<div class="d-flex justify-content-between align-items-start mb-4">
-    <div>
-        <h1 class="mb-2">
-            <i class="bi bi-folder-fill text-primary"></i> {{ project.name }}
-        </h1>
-        <p class="text-muted mb-0">
-            {{ project.description|default:"Nessuna descrizione disponibile" }}
-        </p>
-        <small class="text-muted">
-            <i class="bi bi-calendar3"></i> Creato il {{ project.created_at|date:"d/m/Y" }}
-        </small>
-    </div>
-    <div class="d-flex gap-2">
-        <a href="{% url 'projects:edit' project.pk %}" class="btn btn-outline-primary">
-            <i class="bi bi-pencil"></i> Modifica
-        </a>
-        <a href="{% url 'projects:delete' project.pk %}" class="btn btn-outline-danger">
-            <i class="bi bi-trash"></i> Elimina
-        </a>
-    </div>
-</div>
-
-<!-- Statistiche Esperimenti -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3 class="text-primary mb-0">{{ stats.total }}</h3>
-                <p class="text-muted mb-0 small">Totali</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3 class="text-info mb-0">{{ stats.running }}</h3>
-                <p class="text-muted mb-0 small">In Corso</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3 class="text-success mb-0">{{ stats.persevere }}</h3>
-                <p class="text-muted mb-0 small">Persevere</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3 class="text-danger mb-0">{{ stats.pivot }}</h3>
-                <p class="text-muted mb-0 small">Pivot</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Sezione Esperimenti -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3><i class="bi bi-flask"></i> Esperimenti</h3>
-    <a href="{% url 'projects:experiment_create' project.pk %}" class="btn btn-success">
-        <i class="bi bi-plus-circle"></i> Nuovo Esperimento
-    </a>
-</div>
-
-{% if experiments %}
-<div class="row">
-    {% for experiment in experiments %}
-    <div class="col-md-6 mb-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h5 class="card-title mb-0">
-                        <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
-                           class="text-decoration-none">
-                            {{ experiment.title }}
-                        </a>
-                    </h5>
+<!-- Header Esperimento -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <div class="mb-2">
                     <span class="badge 
                         {% if experiment.status == 'running' %}bg-info
                         {% elif experiment.status == 'completed' %}bg-success
-                        {% else %}bg-secondary{% endif %}">
+                        {% else %}bg-secondary{% endif %} me-2">
                         {{ experiment.get_status_display }}
                     </span>
-                </div>
-                
-                <p class="card-text text-muted small">
-                    {{ experiment.hypothesis|truncatewords:15 }}
-                </p>
-                
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <div>
-                        {% if experiment.decision != 'pending' %}
-                        <span class="badge 
-                            {% if experiment.decision == 'persevere' %}badge-persevere
-                            {% elif experiment.decision == 'pivot' %}badge-pivot
-                            {% else %}badge-pending{% endif %}">
-                            {{ experiment.get_decision_display }}
-                        </span>
+                    {% if experiment.decision != 'pending' %}
+                    <span class="badge 
+                        {% if experiment.decision == 'persevere' %}badge-persevere
+                        {% elif experiment.decision == 'pivot' %}badge-pivot
+                        {% else %}badge-pending{% endif %}">
+                        {% if experiment.decision == 'persevere' %}
+                            <i class="bi bi-check-circle"></i>
+                        {% elif experiment.decision == 'pivot' %}
+                            <i class="bi bi-x-circle"></i>
+                        {% else %}
+                            <i class="bi bi-clock"></i>
                         {% endif %}
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
-                           class="btn btn-outline-primary" title="Dettagli">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                        <a href="{% url 'projects:experiment_dashboard' project.pk experiment.pk %}" 
-                           class="btn btn-outline-info" title="Dashboard">
-                            <i class="bi bi-graph-up"></i>
-                        </a>
-                        <a href="{% url 'projects:experiment_edit' project.pk experiment.pk %}" 
-                           class="btn btn-outline-secondary" title="Modifica">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                    </div>
+                        {{ experiment.get_decision_display }}
+                    </span>
+                    {% endif %}
                 </div>
+                <h1 class="mb-2">
+                    <i class="bi bi-flask-fill text-success"></i> {{ experiment.title }}
+                </h1>
             </div>
-            <div class="card-footer bg-transparent border-top-0">
-                <small class="text-muted">
-                    <i class="bi bi-calendar-range"></i>
+            <div class="btn-group">
+                <a href="{% url 'projects:experiment_dashboard' project.pk experiment.pk %}" 
+                   class="btn btn-info">
+                    <i class="bi bi-graph-up"></i> Dashboard
+                </a>
+                <a href="{% url 'projects:experiment_edit' project.pk experiment.pk %}" 
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-pencil"></i> Modifica
+                </a>
+                <a href="{% url 'projects:experiment_delete' project.pk experiment.pk %}" 
+                   class="btn btn-outline-danger">
+                    <i class="bi bi-trash"></i> Elimina
+                </a>
+            </div>
+        </div>
+        
+        <!-- Ipotesi -->
+        <div class="alert alert-light border">
+            <h6 class="mb-2"><i class="bi bi-lightbulb-fill text-warning"></i> Ipotesi</h6>
+            <p class="mb-0">{{ experiment.hypothesis }}</p>
+        </div>
+        
+        <!-- Dettagli -->
+        <div class="row">
+            <div class="col-md-6">
+                <p class="mb-1">
+                    <i class="bi bi-calendar-range text-muted"></i> 
+                    <strong>Periodo:</strong>
                     {% if experiment.start_date %}
                         {{ experiment.start_date|date:"d/m/Y" }}
                         {% if experiment.end_date %} - {{ experiment.end_date|date:"d/m/Y" }}{% endif %}
                     {% else %}
-                        Date non impostate
+                        Non impostato
                     {% endif %}
-                </small>
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1">
+                    <i class="bi bi-calendar-plus text-muted"></i> 
+                    <strong>Creato:</strong> {{ experiment.created_at|date:"d/m/Y H:i" }}
+                </p>
+            </div>
+        </div>
+        
+        {% if experiment.notes %}
+        <div class="mt-3">
+            <h6><i class="bi bi-sticky"></i> Note</h6>
+            <p class="text-muted">{{ experiment.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Sezione Indicatori -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-graph-up-arrow"></i> Indicatori</h3>
+    <!-- ✅ LINK AGGIORNATO -->
+    <a href="{% url 'metrics:indicator_create' experiment.pk %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Aggiungi Indicatore
+    </a>
+</div>
+
+{% if indicators %}
+<div class="row">
+    {% for indicator in indicators %}
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title mb-0">{{ indicator.name }}</h5>
+                    <span class="badge 
+                        {% if indicator.role == 'primary' %}bg-primary
+                        {% elif indicator.role == 'guardrail' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ indicator.get_role_display }}
+                    </span>
+                </div>
+                
+                <p class="text-muted small mb-2">
+                    {{ indicator.description|default:"Nessuna descrizione" }}
+                </p>
+                
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-info">{{ indicator.get_indicator_type_display }}</span>
+                        <small class="text-muted ms-2">
+                            Target: <strong>+{{ indicator.target_uplift }}%</strong>
+                        </small>
+                    </div>
+                    <div>
+                        <span class="badge bg-light text-dark">
+                            {{ indicator.results.count }} risultati
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Ultimo risultato -->
+                {% with indicator.results.first as last_result %}
+                {% if last_result %}
+                <div class="mt-3 p-2 bg-light rounded">
+                    <small class="text-muted d-block mb-1">Ultimo risultato ({{ last_result.measured_at|date:"d/m/Y" }}):</small>
+                    <div class="d-flex justify-content-between">
+                        <span>
+                            Control: <strong>{{ last_result.value_control }}</strong>
+                        </span>
+                        <span>
+                            Variant: <strong>{{ last_result.value_variant }}</strong>
+                        </span>
+                        <span class="{% if last_result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <strong>{{ last_result.delta_percentage|floatformat:2 }}%</strong>
+                        </span>
+                    </div>
+                </div>
+                {% endif %}
+                {% endwith %}
+                
+                <div class="mt-2">
+                    <!-- ✅ LINK AGGIORNATO -->
+                    <a href="{% url 'metrics:result_create' indicator.pk %}" class="btn btn-sm btn-outline-primary me-1">
+                        <i class="bi bi-plus"></i> Aggiungi Risultato
+                    </a>
+                    <!-- ✅ LINK AGGIORNATO -->
+                    <a href="{% url 'metrics:indicator_edit' indicator.pk %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil"></i> Modifica
+                    </a>
+                </div>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
-<!-- Stato vuoto -->
+<!-- Stato vuoto indicatori -->
 <div class="card">
     <div class="card-body text-center py-5">
-        <i class="bi bi-flask" style="font-size: 3rem; color: #ddd;"></i>
-        <h4 class="mt-3 text-muted">Nessun esperimento ancora</h4>
-        <p class="text-muted">Inizia a testare le tue ipotesi!</p>
-        <a href="{% url 'projects:experiment_create' project.pk %}" class="btn btn-success mt-2">
-            <i class="bi bi-plus-circle"></i> Crea il primo esperimento
+        <i class="bi bi-graph-up" style="font-size: 3rem; color: #ddd;"></i>
+        <h4 class="mt-3 text-muted">Nessun indicatore definito</h4>
+        <p class="text-muted">Aggiungi gli indicatori da monitorare per questo esperimento</p>
+        <!-- ✅ LINK AGGIORNATO -->
+        <a href="{% url 'metrics:indicator_create' experiment.pk %}" class="btn btn-primary mt-2">
+            <i class="bi bi-plus-circle"></i> Aggiungi il primo indicatore
         </a>
     </div>
 </div>

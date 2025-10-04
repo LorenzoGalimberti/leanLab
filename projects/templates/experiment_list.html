@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Esperimenti - {{ project.name }} - LeanLab{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:list' %}">Progetti</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' project.pk %}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">Esperimenti</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">
+            <i class="bi bi-flask-fill text-success"></i> Esperimenti
+        </h1>
+        <p class="text-muted mb-0">Progetto: <strong>{{ project.name }}</strong></p>
+    </div>
+    <a href="{% url 'projects:experiment_create' project.pk %}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Nuovo Esperimento
+    </a>
+</div>
+
+<!-- Lista Esperimenti -->
+{% if experiments %}
+<div class="row">
+    {% for experiment in experiments %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="badge 
+                    {% if experiment.status == 'running' %}bg-info
+                    {% elif experiment.status == 'completed' %}bg-success
+                    {% else %}bg-secondary{% endif %}">
+                    {{ experiment.get_status_display }}
+                </span>
+                {% if experiment.decision != 'pending' %}
+                <span class="badge 
+                    {% if experiment.decision == 'persevere' %}badge-persevere
+                    {% elif experiment.decision == 'pivot' %}badge-pivot
+                    {% else %}badge-pending{% endif %}">
+                    {{ experiment.get_decision_display }}
+                </span>
+                {% endif %}
+            </div>
+            
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
+                       class="text-decoration-none">
+                        {{ experiment.title }}
+                    </a>
+                </h5>
+                
+                <p class="card-text text-muted small">
+                    <strong>Ipotesi:</strong><br>
+                    {{ experiment.hypothesis|truncatewords:20 }}
+                </p>
+                
+                <div class="mt-3">
+                    <small class="text-muted d-block">
+                        <i class="bi bi-calendar-range"></i>
+                        {% if experiment.start_date %}
+                            {{ experiment.start_date|date:"d/m/Y" }}
+                            {% if experiment.end_date %} - {{ experiment.end_date|date:"d/m/Y" }}{% endif %}
+                        {% else %}
+                            Date non impostate
+                        {% endif %}
+                    </small>
+                    <small class="text-muted d-block mt-1">
+                        <i class="bi bi-graph-up"></i>
+                        {{ experiment.indicators.count }} indicatori
+                    </small>
+                </div>
+            </div>
+            
+            <div class="card-footer bg-transparent">
+                <div class="btn-group w-100" role="group">
+                    <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> Dettagli
+                    </a>
+                    <a href="{% url 'projects:experiment_dashboard' project.pk experiment.pk %}" 
+                       class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-graph-up"></i> Dashboard
+                    </a>
+                    <a href="{% url 'projects:experiment_edit' project.pk experiment.pk %}" 
+                       class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<!-- Stato vuoto -->
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-flask" style="font-size: 4rem; color: #ddd;"></i>
+        <h3 class="mt-3 text-muted">Nessun esperimento ancora</h3>
+        <p class="text-muted">Inizia a testare le tue ipotesi creando il primo esperimento!</p>
+        <a href="{% url 'projects:experiment_create' project.pk %}" class="btn btn-success btn-lg mt-3">
+            <i class="bi bi-plus-circle"></i> Crea il primo esperimento
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
