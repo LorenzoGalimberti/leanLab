@@ -22,4 +22,9 @@ urlpatterns = [
     path('<int:project_pk>/experiments/<int:pk>/edit/', views.experiment_edit, name='experiment_edit'),
     path('<int:project_pk>/experiments/<int:pk>/delete/', views.experiment_delete, name='experiment_delete'),
     path('<int:project_pk>/experiments/<int:pk>/dashboard/', views.experiment_dashboard, name='experiment_dashboard'),
+    
+    # ✅ AGGIUNGI QUESTA RIGA
+    path('<int:project_pk>/experiments/<int:pk>/update-bigquery/', 
+         views.experiment_update_from_bigquery, 
+         name='experiment_update_bigquery'),
 ]

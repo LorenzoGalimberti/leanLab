@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.db.models import Count, Q
 from .models import Project, Experiment
 from .forms import ProjectForm, ExperimentForm
+from metrics.utils import update_experiment_from_bigquery  # ✅ RIGA AGGIUNTA
 
 # ========================================
 # VIEWS PROGETTI
@@ -28,7 +29,7 @@ def project_list(request):
         'completed_experiments': completed_experiments,
     }
     
-    return render(request, 'project_list.html', context)  # ← Senza prefisso
+    return render(request, 'project_list.html', context)
 
 
 def project_detail(request, pk):
@@ -51,7 +52,7 @@ def project_detail(request, pk):
         'stats': stats,
     }
     
-    return render(request, 'project_detail.html', context)  # ← Senza prefisso
+    return render(request, 'project_detail.html', context)
 
 
 def project_create(request):
@@ -71,7 +72,7 @@ def project_create(request):
         'button_text': 'Crea Progetto'
     }
     
-    return render(request, 'project_form.html', context)  # ← Senza prefisso
+    return render(request, 'project_form.html', context)
 
 
 def project_edit(request, pk):
@@ -94,7 +95,7 @@ def project_edit(request, pk):
         'button_text': 'Salva Modifiche'
     }
     
-    return render(request, 'project_form.html', context)  # ← Senza prefisso
+    return render(request, 'project_form.html', context)
 
 
 def project_delete(request, pk):
@@ -112,7 +113,7 @@ def project_delete(request, pk):
         'project': project,
     }
     
-    return render(request, 'project_confirm_delete.html', context)  # ← Senza prefisso
+    return render(request, 'project_confirm_delete.html', context)
 
 
 # ========================================
@@ -129,7 +130,7 @@ def experiment_list(request, project_pk):
         'experiments': experiments,
     }
     
-    return render(request, 'experiment_list.html', context)  # ← Senza prefisso
+    return render(request, 'experiment_list.html', context)
 
 
 def experiment_detail(request, project_pk, pk):
@@ -144,7 +145,7 @@ def experiment_detail(request, project_pk, pk):
         'indicators': indicators,
     }
     
-    return render(request, 'experiment_detail.html', context)  # ← Senza prefisso
+    return render(request, 'experiment_detail.html', context)
 
 
 def experiment_create(request, project_pk):
@@ -169,7 +170,7 @@ def experiment_create(request, project_pk):
         'button_text': 'Crea Esperimento'
     }
     
-    return render(request, 'experiment_form.html', context)  # ← Senza prefisso
+    return render(request, 'experiment_form.html', context)
 
 
 def experiment_edit(request, project_pk, pk):
@@ -194,7 +195,7 @@ def experiment_edit(request, project_pk, pk):
         'button_text': 'Salva Modifiche'
     }
     
-    return render(request, 'experiment_form.html', context)  # ← Senza prefisso
+    return render(request, 'experiment_form.html', context)
 
 
 def experiment_delete(request, project_pk, pk):
@@ -213,7 +214,7 @@ def experiment_delete(request, project_pk, pk):
         'experiment': experiment,
     }
     
-    return render(request, 'experiment_confirm_delete.html', context)  # ← Senza prefisso
+    return render(request, 'experiment_confirm_delete.html', context)
 
 
 def experiment_dashboard(request, project_pk, pk):
@@ -237,4 +238,47 @@ def experiment_dashboard(request, project_pk, pk):
         'chart_data': chart_data,
     }
     
-    return render(request, 'experiment_dashboard.html', context)  # ← Senza prefisso
+    return render(request, 'experiment_dashboard.html', context)
+
+
+# ========================================
+# VIEW AGGIORNAMENTO BIGQUERY
+# ========================================
+
+def experiment_update_from_bigquery(request, project_pk, pk):
+    """
+    Aggiorna tutti gli indicatori dell'esperimento interrogando BigQuery (mock).
+    Questa view viene chiamata quando l'utente clicca "Aggiorna da BigQuery".
+    """
+    project = get_object_or_404(Project, pk=project_pk)
+    experiment = get_object_or_404(Experiment, pk=pk, project=project)
+    
+    # Esegue l'aggiornamento usando la funzione in utils
+    results = update_experiment_from_bigquery(experiment)
+    
+    # Messaggi di feedback per l'utente
+    if results['updated'] > 0:
+        messages.success(
+            request, 
+            f"✅ Aggiornati {results['updated']}/{results['total_indicators']} indicatori da BigQuery!"
+        )
+    
+    if results['skipped'] > 0:
+        # Mostra solo i primi 3 errori per non sovraccaricare il messaggio
+        error_summary = ', '.join(results['errors'][:3])
+        if len(results['errors']) > 3:
+            error_summary += f" (e altri {len(results['errors']) - 3}...)"
+        
+        messages.warning(
+            request,
+            f"⚠️ {results['skipped']} indicatori saltati. Dettagli: {error_summary}"
+        )
+    
+    if results['updated'] == 0 and results['total_indicators'] > 0:
+        messages.error(
+            request,
+            "❌ Nessun indicatore aggiornato. Verifica che abbiano metric_key configurata e che esistano dati in MockBigQueryData."
+        )
+    
+    # Redirect alla dashboard per vedere i risultati
+    return redirect('projects:experiment_dashboard', project_pk=project.pk, pk=experiment.pk)

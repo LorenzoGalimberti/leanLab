@@ -23,6 +23,12 @@
         <p class="text-muted mb-0">{{ experiment.title }}</p>
     </div>
     <div class="btn-group">
+        <!-- ✅ PULSANTE NUOVO -->
+        <a href="{% url 'projects:experiment_update_bigquery' project.pk experiment.pk %}" 
+           class="btn btn-warning">
+            <i class="bi bi-cloud-download"></i> Aggiorna da BigQuery
+        </a>
+        
         <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
            class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Torna al Dettaglio

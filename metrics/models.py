@@ -33,6 +33,14 @@ class Indicator(models.Model):
         verbose_name="Target Uplift %"
     )
     
+    # ✅ CAMPO NUOVO
+    bigquery_metric_key = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Chiave per recuperare dati da MockBigQueryData (es: completion_rate, retention_d7)",
+        verbose_name="Metric Key BigQuery"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -101,4 +109,68 @@ class DefinedEvent(models.Model):
     
     def __str__(self):
         return self.alias
+
+
+# ✅ MODEL NUOVO
+class MockBigQueryData(models.Model):
+    """
+    Simula i dati aggregati che tornerebbero da BigQuery.
+    In produzione questo model non esiste, si interroga direttamente BigQuery.
     
+    Esempio: se BigQuery restituisce "control: 64.5%, variant: 78.3%",
+    qui salviamo quella riga già aggregata.
+    """
+    
+    experiment = models.ForeignKey(
+        'projects.Experiment',
+        on_delete=models.CASCADE,
+        related_name='mock_bigquery_data',
+        help_text="Esperimento a cui si riferiscono questi dati"
+    )
+    
+    metric_key = models.CharField(
+        max_length=100,
+        help_text="Identificatore metrica (es: completion_rate, retention_d7, arpu)"
+    )
+    
+    date = models.DateField(
+        help_text="Data a cui si riferiscono i dati aggregati"
+    )
+    
+    # Valori aggregati (come tornano da BigQuery)
+    value_control = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        help_text="Valore aggregato gruppo Control"
+    )
+    
+    value_variant = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        help_text="Valore aggregato gruppo Variant"
+    )
+    
+    # Metadata utili (opzionali ma utili per debugging)
+    sample_size_control = models.IntegerField(
+        default=0,
+        help_text="Numero utenti nel gruppo Control"
+    )
+    
+    sample_size_variant = models.IntegerField(
+        default=0,
+        help_text="Numero utenti nel gruppo Variant"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Mock BigQuery Data"
+        verbose_name_plural = "Mock BigQuery Data"
+        ordering = ['-date', 'experiment', 'metric_key']
+        # Evita duplicati: stessa combinazione exp+metric+data
+        unique_together = ['experiment', 'metric_key', 'date']
+    
+    def __str__(self):
+        return f"{self.experiment.title} | {self.metric_key} | {self.date}"
+
+        
