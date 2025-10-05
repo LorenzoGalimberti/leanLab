@@ -217,8 +217,10 @@ def experiment_delete(request, project_pk, pk):
     return render(request, 'experiment_confirm_delete.html', context)
 
 
+import json
+from decimal import Decimal
+
 def experiment_dashboard(request, project_pk, pk):
-    """Dashboard esperimento con grafici e metriche"""
     project = get_object_or_404(Project, pk=project_pk)
     experiment = get_object_or_404(Experiment, pk=pk, project=project)
     indicators = experiment.indicators.all().prefetch_related('results')
@@ -226,20 +228,40 @@ def experiment_dashboard(request, project_pk, pk):
     chart_data = []
     for indicator in indicators:
         results = indicator.results.order_by('measured_at')
+        
+        # Converti in lista Python sicura
+        results_list = []
+        for result in results:
+            results_list.append({
+                'date': result.measured_at.strftime('%d/%m/%Y'),
+                'control': float(result.value_control or 0),
+                'variant': float(result.value_variant or 0),
+                'delta': float(result.delta_percentage or 0)
+            })
+        
         chart_data.append({
             'indicator': indicator,
             'results': results,
+            'results_json': results_list  # ← NUOVO
         })
+    
+    # Converti in JSON sicuro
+    chart_data_json = json.dumps([{
+        'indicatorId': item['indicator'].id,
+        'indicatorName': item['indicator'].name,
+        'targetUplift': float(item['indicator'].target_uplift or 0),
+        'results': item['results_json']
+    } for item in chart_data])
     
     context = {
         'project': project,
         'experiment': experiment,
         'indicators': indicators,
         'chart_data': chart_data,
+        'chart_data_json': chart_data_json  # ← NUOVO
     }
     
     return render(request, 'experiment_dashboard.html', context)
-
 
 # ========================================
 # VIEW AGGIORNAMENTO BIGQUERY
@@ -253,14 +275,15 @@ def experiment_update_from_bigquery(request, project_pk, pk):
     project = get_object_or_404(Project, pk=project_pk)
     experiment = get_object_or_404(Experiment, pk=pk, project=project)
     
-    # Esegue l'aggiornamento usando la funzione in utils
-    results = update_experiment_from_bigquery(experiment)
+    # Esegue l'aggiornamento IMPORTANDO TUTTI I DATI STORICI
+    results = update_experiment_from_bigquery(experiment, import_all=True)
     
     # Messaggi di feedback per l'utente
     if results['updated'] > 0:
         messages.success(
             request, 
-            f"✅ Aggiornati {results['updated']}/{results['total_indicators']} indicatori da BigQuery!"
+            f"✅ Aggiornati {results['updated']}/{results['total_indicators']} indicatori! "
+            f"Importati {results['total_results_created']} punti dati storici da BigQuery."
         )
     
     if results['skipped'] > 0:
@@ -282,3 +305,4 @@ def experiment_update_from_bigquery(request, project_pk, pk):
     
     # Redirect alla dashboard per vedere i risultati
     return redirect('projects:experiment_dashboard', project_pk=project.pk, pk=experiment.pk)
+

@@ -56,3 +56,107 @@ class Experiment(models.Model):
     
     def __str__(self):
         return f"{self.project.name} - {self.title}"
+    
+    # ========================================
+    # ✅ METODI NUOVI PER CALCOLO DECISIONE
+    # ========================================
+    
+    def calculate_decision(self):
+        """
+        Calcola la decisione finale dell'esperimento basandosi su tutti gli indicatori.
+        
+        Logica:
+        1. Se ci sono guardrail che falliscono → PIVOT
+        2. Se tutti i primari raggiungono target → PERSEVERE
+        3. Altrimenti → PIVOT
+        
+        Returns:
+            str: 'persevere', 'pivot', o 'pending' se non ci sono risultati
+        """
+        indicators = self.indicators.all()
+        
+        if not indicators.exists():
+            return 'pending'
+        
+        # Verifica se tutti gli indicatori hanno almeno un risultato
+        indicators_with_results = [ind for ind in indicators if ind.results.exists()]
+        if not indicators_with_results:
+            return 'pending'
+        
+        # Controlla guardrail
+        guardrails = [ind for ind in indicators_with_results if ind.role == 'guardrail']
+        for guardrail in guardrails:
+            latest_result = guardrail.results.first()  # Ordinato per -measured_at
+            if latest_result and latest_result.decision_auto == 'pivot':
+                return 'pivot'  # Guardrail fallito → PIVOT immediato
+        
+        # Controlla indicatori primari
+        primaries = [ind for ind in indicators_with_results if ind.role == 'primary']
+        if not primaries:
+            return 'pending'  # Nessun indicatore primario
+        
+        # Tutti i primari devono essere "persevere"
+        all_primaries_ok = True
+        for primary in primaries:
+            latest_result = primary.results.first()
+            if not latest_result or latest_result.decision_auto != 'persevere':
+                all_primaries_ok = False
+                break
+        
+        return 'persevere' if all_primaries_ok else 'pivot'
+    
+    def update_decision(self):
+        """Aggiorna il campo decision chiamando calculate_decision() e salva"""
+        new_decision = self.calculate_decision()
+        if self.decision != new_decision:
+            self.decision = new_decision
+            self.save(update_fields=['decision', 'updated_at'])
+        return new_decision
+    
+    def get_decision_summary(self):
+        """
+        Ritorna un dizionario con il riepilogo della decisione
+        
+        Returns:
+            dict: {
+                'decision': str,
+                'primary_count': int,
+                'primary_ok': int,
+                'guardrail_count': int,
+                'guardrail_failed': int,
+                'message': str
+            }
+        """
+        indicators = self.indicators.all()
+        
+        primaries = [ind for ind in indicators if ind.role == 'primary' and ind.results.exists()]
+        guardrails = [ind for ind in indicators if ind.role == 'guardrail' and ind.results.exists()]
+        
+        primary_ok = sum(1 for ind in primaries 
+                        if ind.results.first() and ind.results.first().decision_auto == 'persevere')
+        
+        guardrail_failed = sum(1 for ind in guardrails 
+                              if ind.results.first() and ind.results.first().decision_auto == 'pivot')
+        
+        decision = self.calculate_decision()
+        
+        # Genera messaggio descrittivo
+        if decision == 'pending':
+            message = "In attesa di risultati"
+        elif guardrail_failed > 0:
+            message = f"❌ {guardrail_failed} guardrail falliti"
+        elif decision == 'persevere':
+            message = f"✅ Tutti i {len(primaries)} indicatori primari OK"
+        else:
+            message = f"⚠️ Solo {primary_ok}/{len(primaries)} indicatori primari OK"
+        
+        return {
+            'decision': decision,
+            'primary_count': len(primaries),
+            'primary_ok': primary_ok,
+            'guardrail_count': len(guardrails),
+            'guardrail_failed': guardrail_failed,
+            'message': message
+        }
+    
+    

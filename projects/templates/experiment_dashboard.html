@@ -2,6 +2,16 @@
 
 {% block title %}Dashboard - {{ experiment.title }} - LeanLab{% endblock %}
 
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <!-- Breadcrumb -->
@@ -23,12 +33,10 @@
         <p class="text-muted mb-0">{{ experiment.title }}</p>
     </div>
     <div class="btn-group">
-        <!-- ✅ PULSANTE NUOVO -->
         <a href="{% url 'projects:experiment_update_bigquery' project.pk experiment.pk %}" 
            class="btn btn-warning">
             <i class="bi bi-cloud-download"></i> Aggiorna da BigQuery
         </a>
-        
         <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" 
            class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Torna al Dettaglio
@@ -97,10 +105,16 @@
         </div>
         <div class="card-body">
             {% if item.results %}
+            
+            <!-- Grafico Chart.js -->
+            <div class="chart-container mb-4">
+                <canvas id="chart-{{ item.indicator.id }}"></canvas>
+            </div>
+            
             <!-- Tabella Risultati -->
             <div class="table-responsive">
                 <table class="table table-sm table-hover">
-                    <thead>
+                    <thead class="table-light">
                         <tr>
                             <th>Data</th>
                             <th class="text-end">Control</th>
@@ -135,11 +149,6 @@
                 </table>
             </div>
             
-            <!-- Placeholder per grafico futuro -->
-            <div class="alert alert-info mt-3">
-                <i class="bi bi-info-circle"></i> 
-                <strong>Grafico temporale:</strong> Verrà implementato nella prossima fase con visualizzazione trend.
-            </div>
             {% else %}
             <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i> 
@@ -162,4 +171,161 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// Dati per i grafici (generati dinamicamente da Django)
+const chartData = {{ chart_data_json|safe }};
+
+// Crea un grafico per ogni indicatore
+chartData.forEach(data => {
+    const ctx = document.getElementById(`chart-${data.indicatorId}`);
+    
+    // Calcola linea target (Control * (1 + target%))
+    const targetLine = data.results.map(r => r.control * (1 + data.targetUplift / 100));
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.results.map(r => r.date),
+            datasets: [
+                {
+                    label: 'Control',
+                    data: data.results.map(r => r.control),
+                    borderColor: 'rgb(99, 102, 241)',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Variant',
+                    data: data.results.map(r => r.variant),
+                    borderColor: 'rgb(16, 185, 129)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: `Target (+${data.targetUplift}%)`,
+                    data: targetLine,
+                    borderColor: 'rgb(245, 158, 11)',
+                    backgroundColor: 'transparent',
+                    borderDash: [8, 4],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    }
+                },
+                title: {
+                    display: true,
+                    text: `${data.indicatorName} - Trend Temporale`,
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    },
+                    padding: {
+                        bottom: 20
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    bodySpacing: 8,
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 13
+                    },
+                    callbacks: {
+                        afterLabel: function(context) {
+                            if (context.datasetIndex < 2) {
+                                const idx = context.dataIndex;
+                                const delta = data.results[idx].delta;
+                                return `Delta: ${delta.toFixed(2)}%`;
+                            }
+                        },
+                        footer: function(tooltipItems) {
+                            const idx = tooltipItems[0].dataIndex;
+                            const variant = data.results[idx].variant;
+                            const target = data.results[idx].control * (1 + data.targetUplift / 100);
+                            
+                            if (variant >= target) {
+                                return 'Target raggiunto!';
+                            } else {
+                                const diff = ((target - variant) / target * 100).toFixed(1);
+                                return `Manca ${diff}% al target`;
+                            }
+                        }
+                    },
+                    footerFont: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    footerColor: '#fbbf24'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Valore',
+                        font: {
+                            size: 13,
+                            weight: 'bold'
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Data',
+                        font: {
+                            size: 13,
+                            weight: 'bold'
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -98,10 +98,57 @@
     </div>
 </div>
 
+<!-- ✅ NUOVA SEZIONE: Riepilogo Decisione Automatica -->
+{% with summary=experiment.get_decision_summary %}
+<div class="card mb-4 border-{% if summary.decision == 'persevere' %}success{% elif summary.decision == 'pivot' %}danger{% else %}secondary{% endif %}">
+    <div class="card-header bg-{% if summary.decision == 'persevere' %}success{% elif summary.decision == 'pivot' %}danger{% else %}secondary{% endif %} text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-clipboard-data"></i> Riepilogo Decisione
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4 class="mb-2">
+                    <span class="badge 
+                        {% if summary.decision == 'persevere' %}badge-persevere
+                        {% elif summary.decision == 'pivot' %}badge-pivot
+                        {% else %}badge-pending{% endif %} fs-5">
+                        {{ experiment.get_decision_display|upper }}
+                    </span>
+                </h4>
+                <p class="mb-3 fs-5">{{ summary.message }}</p>
+                
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted d-block">Indicatori Primari</small>
+                        <strong class="fs-4 {% if summary.primary_ok == summary.primary_count and summary.primary_count > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ summary.primary_ok }} / {{ summary.primary_count }} OK
+                        </strong>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Guardrail</small>
+                        <strong class="fs-4 {% if summary.guardrail_failed == 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ summary.guardrail_failed }} falliti su {{ summary.guardrail_count }}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 text-center">
+                <div class="p-4 rounded" style="background: {% if summary.decision == 'persevere' %}#d1fae5{% elif summary.decision == 'pivot' %}#fee2e2{% else %}#e5e7eb{% endif %}">
+                    <i class="bi {% if summary.decision == 'persevere' %}bi-check-circle-fill text-success{% elif summary.decision == 'pivot' %}bi-x-circle-fill text-danger{% else %}bi-clock text-secondary{% endif %}" 
+                       style="font-size: 4rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endwith %}
+
 <!-- Sezione Indicatori -->
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3><i class="bi bi-graph-up-arrow"></i> Indicatori</h3>
-    <!-- ✅ LINK AGGIORNATO -->
     <a href="{% url 'metrics:indicator_create' experiment.pk %}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Aggiungi Indicatore
     </a>
@@ -162,11 +209,9 @@
                 {% endwith %}
                 
                 <div class="mt-2">
-                    <!-- ✅ LINK AGGIORNATO -->
                     <a href="{% url 'metrics:result_create' indicator.pk %}" class="btn btn-sm btn-outline-primary me-1">
                         <i class="bi bi-plus"></i> Aggiungi Risultato
                     </a>
-                    <!-- ✅ LINK AGGIORNATO -->
                     <a href="{% url 'metrics:indicator_edit' indicator.pk %}" class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-pencil"></i> Modifica
                     </a>
@@ -183,7 +228,6 @@
         <i class="bi bi-graph-up" style="font-size: 3rem; color: #ddd;"></i>
         <h4 class="mt-3 text-muted">Nessun indicatore definito</h4>
         <p class="text-muted">Aggiungi gli indicatori da monitorare per questo esperimento</p>
-        <!-- ✅ LINK AGGIORNATO -->
         <a href="{% url 'metrics:indicator_create' experiment.pk %}" class="btn btn-primary mt-2">
             <i class="bi bi-plus-circle"></i> Aggiungi il primo indicatore
         </a>
@@ -192,3 +236,4 @@
 {% endif %}
 
 {% endblock %}
+

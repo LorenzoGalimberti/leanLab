@@ -33,7 +33,7 @@ class Indicator(models.Model):
         verbose_name="Target Uplift %"
     )
     
-    # ✅ CAMPO NUOVO
+    # ✅ CAMPO NUOVO per mapping BigQuery
     bigquery_metric_key = models.CharField(
         max_length=100,
         blank=True,
@@ -73,14 +73,17 @@ class Result(models.Model):
         ordering = ['-measured_at']
     
     def save(self, *args, **kwargs):
-        """Calcola automaticamente delta % e decisione"""
+        """
+        Calcola automaticamente delta % e decisione.
+        🆕 Aggiorna anche la decisione dell'esperimento padre.
+        """
         if self.value_control and self.value_control != 0:
             self.delta_percentage = ((self.value_variant - self.value_control) / self.value_control) * 100
             
             # Decisione automatica
             if self.indicator.role == 'guardrail':
-                # Guardrail: non deve peggiorare
-                if self.delta_percentage < -5:  # Soglia -5%
+                # Guardrail: non deve peggiorare (soglia -5%)
+                if self.delta_percentage < -5:
                     self.decision_auto = 'pivot'
                 else:
                     self.decision_auto = 'ok'
@@ -92,6 +95,9 @@ class Result(models.Model):
                     self.decision_auto = 'pivot'
         
         super().save(*args, **kwargs)
+        
+        # ✅ AGGIORNA LA DECISIONE DELL'ESPERIMENTO
+        self.indicator.experiment.update_decision()
     
     def __str__(self):
         return f"{self.indicator.name} - {self.measured_at}"
@@ -111,7 +117,10 @@ class DefinedEvent(models.Model):
         return self.alias
 
 
-# ✅ MODEL NUOVO
+# ========================================
+# ✅ MODEL NUOVO: MockBigQueryData
+# ========================================
+
 class MockBigQueryData(models.Model):
     """
     Simula i dati aggregati che tornerebbero da BigQuery.
@@ -119,6 +128,11 @@ class MockBigQueryData(models.Model):
     
     Esempio: se BigQuery restituisce "control: 64.5%, variant: 78.3%",
     qui salviamo quella riga già aggregata.
+    
+    Questo è utile per:
+    1. Testing senza accesso a BigQuery reale
+    2. Sviluppo locale con dati simulati
+    3. Mockare risposte API durante la Fase 1
     """
     
     experiment = models.ForeignKey(
@@ -172,5 +186,4 @@ class MockBigQueryData(models.Model):
     
     def __str__(self):
         return f"{self.experiment.title} | {self.metric_key} | {self.date}"
-
-        
+    
