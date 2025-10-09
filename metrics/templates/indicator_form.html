@@ -85,6 +85,22 @@
                         </div>
                     </div>
                     
+                    <!-- ✅ NUOVO: Campo Tipo di Test -->
+                    <div class="mb-3">
+                        <label for="{{ form.test_type.id_for_label }}" class="form-label">
+                            {{ form.test_type.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.test_type }}
+                        {% if form.test_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.test_type.errors }}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted d-block">
+                            {{ form.test_type.help_text }}
+                        </small>
+                    </div>
+                    
                     <!-- Target Uplift -->
                     <div class="mb-4">
                         <label for="{{ form.target_uplift.id_for_label }}" class="form-label">
@@ -118,10 +134,17 @@
             </div>
         </div>
         
-        <!-- Info Card -->
+        <!-- ✅ AGGIORNATO: Info Card con spiegazione tipi di test -->
         <div class="card mt-3 border-info">
             <div class="card-body">
-                <h6 class="text-info"><i class="bi bi-info-circle"></i> Tipi di indicatori</h6>
+                <h6 class="text-info"><i class="bi bi-info-circle"></i> Tipi di Test</h6>
+                <ul class="mb-3 small">
+                    <li><strong>A/B Test:</strong> Confronta due varianti parallele (Control vs Variant) nello stesso periodo</li>
+                    <li><strong>Pre/Post Test:</strong> Confronta prima e dopo un cambiamento (Before vs After) in momenti diversi</li>
+                    <li><strong>Single Baseline:</strong> Misurazione singola di riferimento, senza confronto</li>
+                </ul>
+                
+                <h6 class="text-info"><i class="bi bi-info-circle"></i> Ruoli degli Indicatori</h6>
                 <ul class="mb-0 small">
                     <li><strong>Primario:</strong> Obiettivo principale dell'esperimento (es. Conversion Rate)</li>
                     <li><strong>Guardrail:</strong> Metrica che non deve peggiorare (es. Crash Rate)</li>

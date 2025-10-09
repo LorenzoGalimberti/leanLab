@@ -97,18 +97,36 @@ def result_create(request, indicator_pk):
     
     if request.method == 'POST':
         form = ResultForm(request.POST)
+        # ✅ NUOVO: Passa l'indicatore al form per renderlo dinamico
+        form.indicator = indicator
+        
         if form.is_valid():
             result = form.save(commit=False)
             result.indicator = indicator
+            
+            # ✅ NUOVO: Per test_type='single', copia automaticamente il valore
+            if indicator.test_type == 'single':
+                result.value_variant = result.value_control
+            
             result.save()  # Il save() automatico calcola delta % e decisione
             
-            messages.success(
-                request, 
-                f'Risultato salvato! Delta: {result.delta_percentage:.2f}% → {result.decision_auto.upper()}'
-            )
+            # ✅ NUOVO: Messaggio adattato per baseline
+            if indicator.test_type == 'single':
+                messages.success(
+                    request, 
+                    f'Baseline salvata! Valore: {result.value_control:.2f}'
+                )
+            else:
+                messages.success(
+                    request, 
+                    f'Risultato salvato! Delta: {result.delta_percentage:.2f}% → {result.decision_auto.upper()}'
+                )
+            
             return redirect('projects:experiment_detail', project_pk=project.pk, pk=experiment.pk)
     else:
         form = ResultForm()
+        # ✅ NUOVO: Passa l'indicatore anche per GET (form vuoto)
+        form.indicator = indicator
     
     context = {
         'form': form,
@@ -131,12 +149,28 @@ def result_edit(request, pk):
     
     if request.method == 'POST':
         form = ResultForm(request.POST, instance=result)
+        # ✅ NUOVO: Il form prende l'indicatore dall'istanza result
+        # (già gestito nel __init__ del form, ma esplicitiamo per chiarezza)
+        
         if form.is_valid():
-            result = form.save()
-            messages.success(request, f'Risultato aggiornato! Delta: {result.delta_percentage:.2f}%')
+            result = form.save(commit=False)
+            
+            # ✅ NUOVO: Per test_type='single', copia automaticamente il valore
+            if indicator.test_type == 'single':
+                result.value_variant = result.value_control
+            
+            result.save()
+            
+            # ✅ NUOVO: Messaggio adattato
+            if indicator.test_type == 'single':
+                messages.success(request, f'Baseline aggiornata! Valore: {result.value_control:.2f}')
+            else:
+                messages.success(request, f'Risultato aggiornato! Delta: {result.delta_percentage:.2f}%')
+            
             return redirect('projects:experiment_detail', project_pk=project.pk, pk=experiment.pk)
     else:
         form = ResultForm(instance=result)
+        # Il form prende automaticamente l'indicatore da result.indicator
     
     context = {
         'form': form,

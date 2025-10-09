@@ -33,7 +33,13 @@
                                 <i class="bi bi-graph-up text-primary"></i> {{ indicator.name }}
                             </h6>
                             <small class="text-muted">
+                                <!-- ✅ NUOVO: Mostra tipo di test -->
+                                <span class="badge bg-info me-2">
+                                    {{ indicator.get_test_type_display }}
+                                </span>
+                                {% if indicator.test_type != 'single' %}
                                 Target: <strong>+{{ indicator.target_uplift }}%</strong>
+                                {% endif %}
                                 <span class="badge 
                                     {% if indicator.role == 'primary' %}bg-primary
                                     {% elif indicator.role == 'guardrail' %}bg-danger
@@ -61,9 +67,10 @@
                         {% endif %}
                     </div>
                     
-                    <div class="row">
-                        <!-- Valore Control -->
-                        <div class="col-md-6 mb-3">
+                    <!-- ✅ NUOVO: Layout adattivo basato su test_type -->
+                    {% if indicator.test_type == 'single' %}
+                        <!-- SINGLE BASELINE: Un solo campo -->
+                        <div class="mb-3">
                             <label for="{{ form.value_control.id_for_label }}" class="form-label">
                                 {{ form.value_control.label }} <span class="text-danger">*</span>
                             </label>
@@ -77,23 +84,44 @@
                                 {{ form.value_control.help_text }}
                             </small>
                         </div>
-                        
-                        <!-- Valore Variant -->
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.value_variant.id_for_label }}" class="form-label">
-                                {{ form.value_variant.label }} <span class="text-danger">*</span>
-                            </label>
-                            {{ form.value_variant }}
-                            {% if form.value_variant.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.value_variant.errors }}
-                                </div>
-                            {% endif %}
-                            <small class="form-text text-muted d-block">
-                                {{ form.value_variant.help_text }}
-                            </small>
+                        <!-- value_variant è nascosto (HiddenInput) -->
+                        {{ form.value_variant }}
+                    {% else %}
+                        <!-- A/B TEST o PRE/POST: Due campi -->
+                        <div class="row">
+                            <!-- Primo valore (Control o Before) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.value_control.id_for_label }}" class="form-label">
+                                    {{ form.value_control.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.value_control }}
+                                {% if form.value_control.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.value_control.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="form-text text-muted d-block">
+                                    {{ form.value_control.help_text }}
+                                </small>
+                            </div>
+                            
+                            <!-- Secondo valore (Variant o After) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.value_variant.id_for_label }}" class="form-label">
+                                    {{ form.value_variant.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.value_variant }}
+                                {% if form.value_variant.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.value_variant.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="form-text text-muted d-block">
+                                    {{ form.value_variant.help_text }}
+                                </small>
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
                     
                     <!-- Note -->
                     <div class="mb-4">
@@ -122,16 +150,44 @@
             </div>
         </div>
         
-        <!-- Info Card -->
+        <!-- ✅ NUOVO: Info Card dinamica basata su test_type -->
         <div class="card mt-3 border-info">
             <div class="card-body">
                 <h6 class="text-info"><i class="bi bi-info-circle"></i> Come funziona</h6>
-                <p class="mb-2 small">Il sistema calcolerà automaticamente:</p>
-                <ul class="mb-0 small">
-                    <li><strong>Delta %:</strong> (Variant - Control) / Control × 100</li>
-                    <li><strong>Decisione:</strong> Persevere se delta ≥ target, altrimenti Pivot</li>
-                    <li><strong>Guardrail:</strong> Deve rimanere stabile (delta > -5%)</li>
-                </ul>
+                
+                {% if indicator.test_type == 'ab_test' %}
+                    <p class="mb-2 small"><strong>A/B Test:</strong> Confronto tra due gruppi paralleli</p>
+                    <ul class="mb-0 small">
+                        <li><strong>Control:</strong> Gruppo di controllo (versione attuale)</li>
+                        <li><strong>Variant:</strong> Gruppo test (nuova versione)</li>
+                        <li><strong>Delta %:</strong> (Variant - Control) / Control × 100</li>
+                        <li><strong>Decisione:</strong> Persevere se delta ≥ target ({{ indicator.target_uplift }}%), altrimenti Pivot</li>
+                        {% if indicator.role == 'guardrail' %}
+                        <li><strong>Guardrail:</strong> Deve rimanere stabile (delta > -5%)</li>
+                        {% endif %}
+                    </ul>
+                
+                {% elif indicator.test_type == 'pre_post' %}
+                    <p class="mb-2 small"><strong>Pre/Post Test:</strong> Confronto prima e dopo un cambiamento</p>
+                    <ul class="mb-0 small">
+                        <li><strong>Before:</strong> Valore prima del rilascio/cambiamento</li>
+                        <li><strong>After:</strong> Valore dopo il rilascio/cambiamento</li>
+                        <li><strong>Delta %:</strong> (After - Before) / Before × 100</li>
+                        <li><strong>Decisione:</strong> Persevere se delta ≥ target ({{ indicator.target_uplift }}%), altrimenti Pivot</li>
+                        {% if indicator.role == 'guardrail' %}
+                        <li><strong>Guardrail:</strong> Deve rimanere stabile (delta > -5%)</li>
+                        {% endif %}
+                    </ul>
+                
+                {% elif indicator.test_type == 'single' %}
+                    <p class="mb-2 small"><strong>Single Baseline:</strong> Misurazione di riferimento</p>
+                    <ul class="mb-0 small">
+                        <li><strong>Baseline:</strong> Valore di riferimento senza confronto</li>
+                        <li><strong>Delta:</strong> Sempre 0% (nessun confronto)</li>
+                        <li><strong>Decisione:</strong> "Baseline" (valore di riferimento per futuri esperimenti)</li>
+                        <li><em>Nota:</em> Questo valore servirà come punto di partenza per confronti futuri</li>
+                    </ul>
+                {% endif %}
             </div>
         </div>
     </div>

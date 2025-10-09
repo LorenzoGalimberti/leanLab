@@ -19,12 +19,28 @@ class Indicator(models.Model):
         ('secondary', 'Secondario'),
     ]
     
+    # ✅ NUOVO: Scelta del tipo di test
+    TEST_TYPE_CHOICES = [
+        ('ab_test', 'A/B Test (Control vs Variant)'),
+        ('pre_post', 'Pre/Post Test (Before vs After)'),
+        ('single', 'Misurazione Singola (Baseline)'),
+    ]
+    
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='indicators')
     name = models.CharField(max_length=200, verbose_name="Nome Indicatore")
     description = models.TextField(blank=True, verbose_name="Descrizione")
     
     indicator_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='percentage')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='primary')
+    
+    # ✅ NUOVO: Campo test_type
+    test_type = models.CharField(
+        max_length=20,
+        choices=TEST_TYPE_CHOICES,
+        default='ab_test',
+        verbose_name="Tipo di Test",
+        help_text="A/B Test per varianti parallele, Pre/Post per before/after, Single per baseline"
+    )
     
     target_uplift = models.DecimalField(
         max_digits=5, 
@@ -33,7 +49,7 @@ class Indicator(models.Model):
         verbose_name="Target Uplift %"
     )
     
-    # ✅ CAMPO NUOVO per mapping BigQuery
+    # Campo per mapping BigQuery (già esistente, ottimo!)
     bigquery_metric_key = models.CharField(
         max_length=100,
         blank=True,
@@ -75,8 +91,21 @@ class Result(models.Model):
     def save(self, *args, **kwargs):
         """
         Calcola automaticamente delta % e decisione.
-        🆕 Aggiorna anche la decisione dell'esperimento padre.
+        ✅ Gestisce diversi tipi di test: A/B, Pre/Post, Single
         """
+        
+        # ✅ NUOVO: Gestione test_type = 'single' (Baseline)
+        if self.indicator.test_type == 'single':
+            # Per baseline: copia value_control in value_variant
+            self.value_variant = self.value_control
+            self.delta_percentage = 0
+            self.decision_auto = 'baseline'
+            super().save(*args, **kwargs)
+            # Aggiorna decisione esperimento
+            self.indicator.experiment.update_decision()
+            return  # Esce subito, non serve altra logica
+        
+        # ✅ LOGICA ESISTENTE: A/B Test e Pre/Post Test
         if self.value_control and self.value_control != 0:
             self.delta_percentage = ((self.value_variant - self.value_control) / self.value_control) * 100
             
@@ -96,7 +125,7 @@ class Result(models.Model):
         
         super().save(*args, **kwargs)
         
-        # ✅ AGGIORNA LA DECISIONE DELL'ESPERIMENTO
+        # Aggiorna la decisione dell'esperimento
         self.indicator.experiment.update_decision()
     
     def __str__(self):
@@ -118,7 +147,7 @@ class DefinedEvent(models.Model):
 
 
 # ========================================
-# ✅ MODEL NUOVO: MockBigQueryData
+# MODEL: MockBigQueryData
 # ========================================
 
 class MockBigQueryData(models.Model):
@@ -161,7 +190,9 @@ class MockBigQueryData(models.Model):
     value_variant = models.DecimalField(
         max_digits=12,
         decimal_places=4,
-        help_text="Valore aggregato gruppo Variant"
+        null=True,  # ✅ AGGIUNTO: permette NULL per baseline
+        blank=True,  # ✅ AGGIUNTO: permette form vuoto
+        help_text="Valore aggregato gruppo Variant (NULL per baseline)"
     )
     
     # Metadata utili (opzionali ma utili per debugging)
