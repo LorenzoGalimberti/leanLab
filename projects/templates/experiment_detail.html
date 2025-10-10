@@ -98,7 +98,7 @@
     </div>
 </div>
 
-<!-- ✅ NUOVA SEZIONE: Riepilogo Decisione Automatica -->
+<!-- Riepilogo Decisione Automatica -->
 {% with summary=experiment.get_decision_summary %}
 <div class="card mb-4 border-{% if summary.decision == 'persevere' %}success{% elif summary.decision == 'pivot' %}danger{% else %}secondary{% endif %}">
     <div class="card-header bg-{% if summary.decision == 'persevere' %}success{% elif summary.decision == 'pivot' %}danger{% else %}secondary{% endif %} text-white">
@@ -158,7 +158,7 @@
 <div class="row">
     {% for indicator in indicators %}
     <div class="col-md-6 mb-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <h5 class="card-title mb-0">{{ indicator.name }}</h5>
@@ -174,41 +174,157 @@
                     {{ indicator.description|default:"Nessuna descrizione" }}
                 </p>
                 
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="badge bg-info">{{ indicator.get_indicator_type_display }}</span>
+                <!-- Badge Info -->
+                <div class="mt-2">
+                    <span class="badge 
+                        {% if indicator.test_type == 'ab_test' %}bg-primary
+                        {% elif indicator.test_type == 'pre_post' %}bg-info
+                        {% else %}bg-secondary{% endif %}" 
+                        style="font-size: 0.75rem;">
+                        {{ indicator.get_test_type_display }}
+                    </span>
+                    
+                    <span class="badge bg-info ms-1" style="font-size: 0.75rem;">
+                        {{ indicator.get_indicator_type_display }}
+                    </span>
+                    
+                    {% if indicator.test_type == 'single' %}
+                        {% if indicator.target_uplift > 0 %}
                         <small class="text-muted ms-2">
-                            Target: <strong>+{{ indicator.target_uplift }}%</strong>
+                            Target: <strong>{{ indicator.target_uplift|floatformat:2 }}</strong>
                         </small>
-                    </div>
-                    <div>
-                        <span class="badge bg-light text-dark">
-                            {{ indicator.results.count }} risultati
-                        </span>
-                    </div>
+                        {% endif %}
+                    {% else %}
+                    <small class="text-muted ms-2">
+                        Target: <strong>+{{ indicator.target_uplift }}%</strong>
+                    </small>
+                    {% endif %}
                 </div>
                 
-                <!-- Ultimo risultato -->
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <span class="badge bg-light text-dark">
+                        {{ indicator.results.count }} risultati
+                    </span>
+                </div>
+                
+                <!-- ========================================== -->
+                <!-- ULTIMO RISULTATO ADATTIVO -->
+                <!-- ========================================== -->
                 {% with indicator.results.first as last_result %}
                 {% if last_result %}
-                <div class="mt-3 p-2 bg-light rounded">
-                    <small class="text-muted d-block mb-1">Ultimo risultato ({{ last_result.measured_at|date:"d/m/Y" }}):</small>
-                    <div class="d-flex justify-content-between">
-                        <span>
-                            Control: <strong>{{ last_result.value_control }}</strong>
-                        </span>
-                        <span>
-                            Variant: <strong>{{ last_result.value_variant }}</strong>
-                        </span>
-                        <span class="{% if last_result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
-                            <strong>{{ last_result.delta_percentage|floatformat:2 }}%</strong>
-                        </span>
+                
+                    <!-- ✅ CASO 1: SINGLE BASELINE -->
+                    {% if indicator.test_type == 'single' %}
+                    <div class="mt-3 p-3 rounded" style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); border-left: 4px solid #6366f1;">
+                        <div class="row align-items-center">
+                            <div class="col-md-4 text-center">
+                                <small class="text-muted d-block mb-1">
+                                    <i class="bi bi-flag-fill"></i> Baseline
+                                </small>
+                                <h4 class="text-primary mb-0">{{ last_result.value_control|floatformat:2 }}</h4>
+                                <small class="text-muted">{{ last_result.measured_at|date:"d/m/Y" }}</small>
+                            </div>
+                            
+                            {% if indicator.target_uplift > 0 %}
+                            <div class="col-md-4 text-center border-start border-end">
+                                <small class="text-muted d-block mb-1">
+                                    <i class="bi bi-bullseye"></i> Target
+                                </small>
+                                <h5 class="text-warning mb-0">{{ indicator.target_uplift|floatformat:2 }}</h5>
+                                <small class="text-muted">(aspirazionale)</small>
+                            </div>
+                            
+                            <div class="col-md-4 text-center">
+                                <small class="text-muted d-block mb-1">
+                                    <i class="bi bi-clipboard-data"></i> Gap
+                                </small>
+                                <!-- ✅ CORRETTO: Usa metodo del model -->
+                                {% with gap=last_result.get_baseline_gap %}
+                                {% if gap >= 0 %}
+                                    <h5 class="text-success mb-0">
+                                        <i class="bi bi-arrow-up-circle"></i>
+                                        +{{ gap|floatformat:2 }}
+                                    </h5>
+                                    <small class="text-success">Sopra target</small>
+                                {% else %}
+                                    <h5 class="text-danger mb-0">
+                                        <i class="bi bi-arrow-down-circle"></i>
+                                        {{ gap|floatformat:2 }}
+                                    </h5>
+                                    <small class="text-danger">Sotto target</small>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            {% else %}
+                            <div class="col-md-8 text-center">
+                                <div class="alert alert-info mb-0 py-2">
+                                    <small>
+                                        <i class="bi bi-info-circle"></i>
+                                        Baseline di riferimento (no target configurato)
+                                    </small>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
-                </div>
+                    
+                    <!-- ✅ CASO 2: PRE/POST TEST -->
+                    {% elif indicator.test_type == 'pre_post' %}
+                    <div class="mt-3 p-2 bg-light rounded">
+                        <small class="text-muted d-block mb-2">
+                            <i class="bi bi-clock-history"></i> Ultimo risultato ({{ last_result.measured_at|date:"d/m/Y" }}):
+                        </small>
+                        <div class="row">
+                            <div class="col-4 text-center">
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-arrow-left-circle text-danger"></i> Before
+                                </small>
+                                <strong class="text-muted">{{ last_result.value_control|floatformat:2 }}</strong>
+                            </div>
+                            <div class="col-4 text-center border-start border-end">
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-arrow-right-circle text-success"></i> After
+                                </small>
+                                <strong class="text-success">{{ last_result.value_variant|floatformat:2 }}</strong>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted d-block">Delta</small>
+                                <strong class="{% if last_result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ last_result.delta_percentage|floatformat:2 }}%
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ✅ CASO 3: A/B TEST -->
+                    {% else %}
+                    <div class="mt-3 p-2 bg-light rounded">
+                        <small class="text-muted d-block mb-2">
+                            <i class="bi bi-clock-history"></i> Ultimo risultato ({{ last_result.measured_at|date:"d/m/Y" }}):
+                        </small>
+                        <div class="row">
+                            <div class="col-4 text-center">
+                                <small class="text-muted d-block">Control</small>
+                                <strong>{{ last_result.value_control|floatformat:2 }}</strong>
+                            </div>
+                            <div class="col-4 text-center border-start border-end">
+                                <small class="text-muted d-block">Variant</small>
+                                <strong>{{ last_result.value_variant|floatformat:2 }}</strong>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted d-block">Delta</small>
+                                <strong class="{% if last_result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ last_result.delta_percentage|floatformat:2 }}%
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                
                 {% endif %}
                 {% endwith %}
                 
-                <div class="mt-2">
+                <div class="mt-3">
                     <a href="{% url 'metrics:result_create' indicator.pk %}" class="btn btn-sm btn-outline-primary me-1">
                         <i class="bi bi-plus"></i> Aggiungi Risultato
                     </a>
@@ -236,4 +352,3 @@
 {% endif %}
 
 {% endblock %}
-

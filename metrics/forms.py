@@ -4,11 +4,13 @@ from django import forms
 from .models import Indicator, Result
 
 class IndicatorForm(forms.ModelForm):
-    """Form per creare/modificare un indicatore"""
+    """
+    Form per creare/modificare un indicatore.
+    ✅ DINAMICO: adatta label e help_text in base a test_type
+    """
     
     class Meta:
         model = Indicator
-        # ✅ AGGIUNTO: 'test_type' nella lista campi
         fields = ['name', 'description', 'indicator_type', 'role', 'test_type', 'target_uplift']
         widgets = {
             'name': forms.TextInput(attrs={
@@ -26,15 +28,16 @@ class IndicatorForm(forms.ModelForm):
             'role': forms.Select(attrs={
                 'class': 'form-select'
             }),
-            # ✅ NUOVO: Widget per test_type
             'test_type': forms.Select(attrs={
-                'class': 'form-select'
+                'class': 'form-select',
+                'onchange': 'updateTargetField()'  # ✅ NUOVO: JS per aggiornare label
             }),
             'target_uplift': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Es: 10',
                 'step': '0.01',
-                'min': '0'
+                'min': '0',
+                'id': 'id_target_uplift'  # ✅ NUOVO: ID per JS
             }),
         }
         labels = {
@@ -42,15 +45,65 @@ class IndicatorForm(forms.ModelForm):
             'description': 'Descrizione',
             'indicator_type': 'Tipo Indicatore',
             'role': 'Ruolo',
-            'test_type': 'Tipo di Test',  # ✅ NUOVO
-            'target_uplift': 'Target Miglioramento (%)'
+            'test_type': 'Tipo di Test',
+            'target_uplift': 'Target Miglioramento (%)'  # Default, verrà sovrascritto
         }
         help_texts = {
             'target_uplift': 'Percentuale di miglioramento attesa (es. 10 per +10%)',
             'role': 'Primario: obiettivo principale | Guardrail: metrica di sicurezza | Secondario: metrica di supporto',
-            # ✅ NUOVO: Help text per test_type
             'test_type': 'A/B Test: varianti parallele | Pre/Post: prima/dopo rilascio | Single: misurazione baseline senza confronto'
         }
+    
+    # ✅ NUOVO: __init__ per rendere il form dinamico
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Se stiamo modificando un Indicator esistente
+        if self.instance and self.instance.pk:
+            test_type = self.instance.test_type
+        # Se stiamo creando un nuovo Indicator, default = ab_test
+        else:
+            test_type = 'ab_test'
+        
+        # ✅ Adatta label e help_text in base a test_type
+        self._update_target_field_labels(test_type)
+    
+    def _update_target_field_labels(self, test_type):
+        """Helper per aggiornare label/help_text del campo target"""
+        
+        if test_type == 'single':
+            # ========================================
+            # SINGLE BASELINE: valore assoluto
+            # ========================================
+            self.fields['target_uplift'].label = 'Target Aspirazionale (valore assoluto)'
+            self.fields['target_uplift'].help_text = (
+                'Valore obiettivo che vuoi raggiungere (es. 70.0 per 70%). '
+                'Lascia 0 se non hai un target specifico.'
+            )
+            self.fields['target_uplift'].widget.attrs['placeholder'] = 'Es: 70.0'
+            self.fields['target_uplift'].required = False  # Opzionale per baseline
+            
+        elif test_type == 'pre_post':
+            # ========================================
+            # PRE/POST TEST: percentuale miglioramento
+            # ========================================
+            self.fields['target_uplift'].label = 'Target Miglioramento (%) - After vs Before'
+            self.fields['target_uplift'].help_text = (
+                'Percentuale di miglioramento attesa dopo il cambiamento (es. 30 per +30%)'
+            )
+            self.fields['target_uplift'].widget.attrs['placeholder'] = 'Es: 30'
+            self.fields['target_uplift'].required = True
+            
+        else:  # 'ab_test'
+            # ========================================
+            # A/B TEST: percentuale miglioramento
+            # ========================================
+            self.fields['target_uplift'].label = 'Target Uplift (%) - Variant vs Control'
+            self.fields['target_uplift'].help_text = (
+                'Percentuale di miglioramento attesa nel gruppo Variant (es. 15 per +15%)'
+            )
+            self.fields['target_uplift'].widget.attrs['placeholder'] = 'Es: 15'
+            self.fields['target_uplift'].required = True
 
 
 class ResultForm(forms.ModelForm):
@@ -94,7 +147,6 @@ class ResultForm(forms.ModelForm):
             'value_variant': 'Valore misurato nel gruppo variant (test)',
         }
     
-    # ✅ NUOVO: __init__ per rendere il form dinamico
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
@@ -102,7 +154,6 @@ class ResultForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             indicator = self.instance.indicator
         # Se stiamo creando un nuovo Result, l'indicatore viene passato dalla view
-        # (lo gestiamo nella view stessa, qui prepariamo solo la logica)
         elif hasattr(self, 'indicator'):
             indicator = self.indicator
         else:
@@ -137,8 +188,6 @@ class ResultForm(forms.ModelForm):
             self.fields['value_control'].help_text = 'Valore di riferimento (baseline)'
             
             # ✅ Nascondi il campo value_variant (lo popoleremo automaticamente nel save)
-            # Invece di rimuoverlo, lo rendiamo non richiesto e nascosto via CSS
             self.fields['value_variant'].required = False
             self.fields['value_variant'].widget = forms.HiddenInput()
-            
             

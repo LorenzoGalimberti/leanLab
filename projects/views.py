@@ -217,38 +217,103 @@ def experiment_delete(request, project_pk, pk):
     return render(request, 'experiment_confirm_delete.html', context)
 
 
+# projects/views.py - FUNZIONE experiment_dashboard COMPLETA
+# Sostituisci SOLO questa funzione nel tuo views.py esistente
+
 import json
 from decimal import Decimal
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .models import Project, Experiment
 
 def experiment_dashboard(request, project_pk, pk):
+    """
+    Dashboard esperimento con grafici e tabelle adattivi al test_type.
+    ✅ FIX: Calcolo corretto gap per baseline (valore assoluto)
+    """
     project = get_object_or_404(Project, pk=project_pk)
     experiment = get_object_or_404(Experiment, pk=pk, project=project)
     indicators = experiment.indicators.all().prefetch_related('results')
     
     chart_data = []
+    
     for indicator in indicators:
         results = indicator.results.order_by('measured_at')
         
+        if not results.exists():
+            continue
+        
+        # Prepara dati in base a test_type
+        test_type = indicator.test_type
+        
         # Converti in lista Python sicura
         results_list = []
-        for result in results:
-            results_list.append({
-                'date': result.measured_at.strftime('%d/%m/%Y'),
-                'control': float(result.value_control or 0),
-                'variant': float(result.value_variant or 0),
-                'delta': float(result.delta_percentage or 0)
-            })
+        
+        if test_type == 'single':
+            # ========================================
+            # SINGLE BASELINE: valore + gap assoluto
+            # ========================================
+            for result in results:
+                # ✅ CORRETTO: per baseline, target_uplift è valore assoluto
+                target_value = float(indicator.target_uplift or 0)
+                baseline_value = float(result.value_control or 0)
+                
+                # Se target_uplift è 0, non c'è target aspirazionale
+                if target_value == 0:
+                    gap = 0
+                    gap_percentage = 0
+                    target_display = baseline_value  # Usa baseline come riferimento
+                else:
+                    # Gap = baseline - target (valori assoluti)
+                    gap = baseline_value - target_value
+                    # Gap % = quanto manca/eccede rispetto al target
+                    gap_percentage = round((gap / target_value * 100) if target_value != 0 else 0, 2)
+                    target_display = target_value
+                
+                results_list.append({
+                    'date': result.measured_at.strftime('%d/%m/%Y'),
+                    'baseline': baseline_value,
+                    'target': target_display,
+                    'gap': gap,
+                    'gap_percentage': gap_percentage
+                })
+        
+        elif test_type == 'pre_post':
+            # ========================================
+            # PRE/POST TEST: before vs after
+            # ========================================
+            for result in results:
+                results_list.append({
+                    'date': result.measured_at.strftime('%d/%m/%Y'),
+                    'before': float(result.value_control or 0),
+                    'after': float(result.value_variant or 0),
+                    'delta': float(result.delta_percentage or 0)
+                })
+        
+        else:  # 'ab_test'
+            # ========================================
+            # A/B TEST: control vs variant (standard)
+            # ========================================
+            for result in results:
+                results_list.append({
+                    'date': result.measured_at.strftime('%d/%m/%Y'),
+                    'control': float(result.value_control or 0),
+                    'variant': float(result.value_variant or 0),
+                    'delta': float(result.delta_percentage or 0)
+                })
         
         chart_data.append({
             'indicator': indicator,
             'results': results,
-            'results_json': results_list  # ← NUOVO
+            'results_json': results_list,
+            'test_type': test_type
         })
     
-    # Converti in JSON sicuro
+    # Converti in JSON sicuro per Chart.js
     chart_data_json = json.dumps([{
         'indicatorId': item['indicator'].id,
         'indicatorName': item['indicator'].name,
+        'testType': item['test_type'],
         'targetUplift': float(item['indicator'].target_uplift or 0),
         'results': item['results_json']
     } for item in chart_data])
@@ -258,11 +323,10 @@ def experiment_dashboard(request, project_pk, pk):
         'experiment': experiment,
         'indicators': indicators,
         'chart_data': chart_data,
-        'chart_data_json': chart_data_json  # ← NUOVO
+        'chart_data_json': chart_data_json
     }
     
     return render(request, 'experiment_dashboard.html', context)
-
 # ========================================
 # VIEW AGGIORNAMENTO BIGQUERY
 # ========================================

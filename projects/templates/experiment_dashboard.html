@@ -6,8 +6,23 @@
 <style>
     .chart-container {
         position: relative;
-        height: 300px;
+        height: 350px;
         margin-bottom: 20px;
+    }
+    
+    .badge-test-type {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .gap-positive {
+        color: #10b981;
+        font-weight: bold;
+    }
+    
+    .gap-negative {
+        color: #ef4444;
+        font-weight: bold;
     }
 </style>
 {% endblock %}
@@ -41,9 +56,6 @@
            class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Torna al Dettaglio
         </a>
-        <a href="#" class="btn btn-outline-primary">
-            <i class="bi bi-file-pdf"></i> Esporta PDF
-        </a>
     </div>
 </div>
 
@@ -53,16 +65,11 @@
         <div class="row">
             <div class="col-md-8">
                 <h5 class="mb-2">
-                    <span class="badge 
-                        {% if experiment.status == 'running' %}bg-info
-                        {% elif experiment.status == 'completed' %}bg-success
-                        {% else %}bg-secondary{% endif %} me-2">
+                    <span class="badge {% if experiment.status == 'running' %}bg-info{% elif experiment.status == 'completed' %}bg-success{% else %}bg-secondary{% endif %} me-2">
                         {{ experiment.get_status_display }}
                     </span>
                     {% if experiment.decision != 'pending' %}
-                    <span class="badge 
-                        {% if experiment.decision == 'persevere' %}badge-persevere
-                        {% else %}badge-pivot{% endif %}">
+                    <span class="badge {% if experiment.decision == 'persevere' %}badge-persevere{% else %}badge-pivot{% endif %}">
                         {{ experiment.get_decision_display }}
                     </span>
                     {% endif %}
@@ -91,15 +98,17 @@
                     <i class="bi bi-graph-up"></i> {{ item.indicator.name }}
                 </h5>
                 <div>
-                    <span class="badge 
-                        {% if item.indicator.role == 'primary' %}bg-primary
-                        {% elif item.indicator.role == 'guardrail' %}bg-danger
-                        {% else %}bg-secondary{% endif %}">
+                    <span class="badge badge-test-type {% if item.test_type == 'ab_test' %}bg-primary{% elif item.test_type == 'pre_post' %}bg-info{% else %}bg-secondary{% endif %} me-2">
+                        {{ item.indicator.get_test_type_display }}
+                    </span>
+                    <span class="badge {% if item.indicator.role == 'primary' %}bg-primary{% elif item.indicator.role == 'guardrail' %}bg-danger{% else %}bg-secondary{% endif %}">
                         {{ item.indicator.get_role_display }}
                     </span>
-                    <span class="badge bg-info ms-2">
+                    {% if item.test_type != 'single' %}
+                    <span class="badge bg-warning text-dark ms-2">
                         Target: +{{ item.indicator.target_uplift }}%
                     </span>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -111,8 +120,10 @@
                 <canvas id="chart-{{ item.indicator.id }}"></canvas>
             </div>
             
-            <!-- Tabella Risultati -->
+            <!-- Tabella (varia per test_type) -->
             <div class="table-responsive">
+                {% if item.test_type == 'ab_test' %}
+                <!-- Tabella A/B Test -->
                 <table class="table table-sm table-hover">
                     <thead class="table-light">
                         <tr>
@@ -120,212 +131,274 @@
                             <th class="text-end">Control</th>
                             <th class="text-end">Variant</th>
                             <th class="text-end">Delta %</th>
-                            <th>Decisione</th>
+                            <th class="text-center">Decisione</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for result in item.results %}
                         <tr>
                             <td>{{ result.measured_at|date:"d/m/Y" }}</td>
-                            <td class="text-end">{{ result.value_control|floatformat:2 }}</td>
-                            <td class="text-end">{{ result.value_variant|floatformat:2 }}</td>
+                            <td class="text-end"><strong>{{ result.value_control|floatformat:2 }}</strong></td>
+                            <td class="text-end"><strong>{{ result.value_variant|floatformat:2 }}</strong></td>
                             <td class="text-end">
                                 <span class="{% if result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
                                     <strong>{{ result.delta_percentage|floatformat:2 }}%</strong>
                                 </span>
                             </td>
-                            <td>
-                                {% if result.decision_auto == 'persevere' %}
-                                <span class="badge badge-persevere">Persevere</span>
-                                {% elif result.decision_auto == 'pivot' %}
-                                <span class="badge badge-pivot">Pivot</span>
-                                {% else %}
-                                <span class="badge bg-secondary">{{ result.decision_auto }}</span>
-                                {% endif %}
+                            <td class="text-center">
+                                <span class="badge {% if result.decision_auto == 'persevere' %}badge-persevere{% elif result.decision_auto == 'pivot' %}badge-pivot{% else %}bg-secondary{% endif %}">
+                                    {{ result.decision_auto|upper }}
+                                </span>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-            
-            {% else %}
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i> 
-                Nessun risultato registrato per questo indicatore.
+                
+                {% elif item.test_type == 'pre_post' %}
+                <!-- Tabella Pre/Post -->
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th class="text-end">Before</th>
+                            <th class="text-end">After</th>
+                            <th class="text-end">Delta %</th>
+                            <th class="text-center">Decisione</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in item.results %}
+                        <tr>
+                            <td>{{ result.measured_at|date:"d/m/Y" }}</td>
+                            <td class="text-end"><strong>{{ result.value_control|floatformat:2 }}</strong></td>
+                            <td class="text-end"><strong>{{ result.value_variant|floatformat:2 }}</strong></td>
+                            <td class="text-end">
+                                <span class="{% if result.delta_percentage >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    <strong>{{ result.delta_percentage|floatformat:2 }}%</strong>
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {% if result.decision_auto == 'persevere' %}badge-persevere{% elif result.decision_auto == 'pivot' %}badge-pivot{% else %}bg-secondary{% endif %}">
+                                    {{ result.decision_auto|upper }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                {% else %}
+                <!-- Tabella Baseline -->
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th class="text-end">Valore Baseline</th>
+                            <th class="text-end">Target</th>
+                            <th class="text-end">Gap</th>
+                            <th class="text-center">Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in item.results %}
+                        <tr>
+                            <td>{{ result.measured_at|date:"d/m/Y" }}</td>
+                            <td class="text-end"><strong class="text-primary">{{ result.value_control|floatformat:2 }}</strong></td>
+                            <td class="text-end text-muted">
+                                {% if item.indicator.target_uplift > 0 %}
+                                    {{ item.indicator.target_uplift|floatformat:2 }}
+                                {% else %}-{% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if item.indicator.target_uplift > 0 %}
+                                    {% if result.value_control >= item.indicator.target_uplift %}
+                                        <span class="gap-positive">+{{ result.value_control|floatformat:2|add:"-" }}{{ item.indicator.target_uplift|floatformat:2 }}</span>
+                                    {% else %}
+                                        <span class="gap-negative">-{{ item.indicator.target_uplift|floatformat:2|add:"-" }}{{ result.value_control|floatformat:2 }}</span>
+                                    {% endif %}
+                                {% else %}-{% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">Baseline</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
             </div>
             {% endif %}
         </div>
     </div>
     {% endfor %}
-{% else %}
-<div class="card">
-    <div class="card-body text-center py-5">
-        <i class="bi bi-graph-up" style="font-size: 4rem; color: #ddd;"></i>
-        <h4 class="mt-3 text-muted">Nessun dato disponibile</h4>
-        <p class="text-muted">Aggiungi indicatori e risultati per visualizzare la dashboard</p>
-        <a href="{% url 'projects:experiment_detail' project.pk experiment.pk %}" class="btn btn-primary mt-2">
-            <i class="bi bi-arrow-left"></i> Torna all'esperimento
-        </a>
-    </div>
-</div>
 {% endif %}
 
 {% endblock %}
 
 {% block extra_js %}
-<!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
-// Dati per i grafici (generati dinamicamente da Django)
 const chartData = {{ chart_data_json|safe }};
 
-// Crea un grafico per ogni indicatore
 chartData.forEach(data => {
     const ctx = document.getElementById(`chart-${data.indicatorId}`);
+    const testType = data.testType;
+    let chartConfig = {};
     
-    // Calcola linea target (Control * (1 + target%))
-    const targetLine = data.results.map(r => r.control * (1 + data.targetUplift / 100));
+    if (testType === 'ab_test') {
+        const targetLine = data.results.map(r => r.control * (1 + data.targetUplift / 100));
+        chartConfig = {
+            type: 'line',
+            data: {
+                labels: data.results.map(r => r.date),
+                datasets: [
+                    {
+                        label: 'Control',
+                        data: data.results.map(r => r.control),
+                        borderColor: 'rgb(99, 102, 241)',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 5
+                    },
+                    {
+                        label: 'Variant',
+                        data: data.results.map(r => r.variant),
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 5
+                    },
+                    {
+                        label: `Target (+${data.targetUplift}%)`,
+                        data: targetLine,
+                        borderColor: 'rgb(245, 158, 11)',
+                        borderDash: [8, 4],
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: getChartOptions(data.indicatorName, 'A/B Test')
+        };
+    }
+    else if (testType === 'pre_post') {
+        const targetLine = data.results.map(r => r.before * (1 + data.targetUplift / 100));
+        chartConfig = {
+            type: 'line',
+            data: {
+                labels: data.results.map(r => r.date),
+                datasets: [
+                    {
+                        label: 'Before',
+                        data: data.results.map(r => r.before),
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 6
+                    },
+                    {
+                        label: 'After',
+                        data: data.results.map(r => r.after),
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 6
+                    },
+                    {
+                        label: `Target (+${data.targetUplift}%)`,
+                        data: targetLine,
+                        borderColor: 'rgb(245, 158, 11)',
+                        borderDash: [8, 4],
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: getChartOptions(data.indicatorName, 'Pre/Post Test')
+        };
+    }
+    else {  // 'single' - ✅ CORRETTO
+        const baselineValues = data.results.map(r => r.baseline);
+        
+        // ✅ FIX: targetUplift è valore assoluto per baseline
+        let targetValues;
+        if (data.targetUplift > 0) {
+            targetValues = data.results.map(r => data.targetUplift);  // ✅ Linea piatta al valore target
+        } else {
+            targetValues = baselineValues;
+        }
+        
+        chartConfig = {
+            type: 'line',
+            data: {
+                labels: data.results.map(r => r.date),
+                datasets: [
+                    {
+                        label: 'Baseline Misurata',
+                        data: baselineValues,
+                        borderColor: 'rgb(99, 102, 241)',
+                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 6,
+                        fill: true
+                    },
+                    {
+                        label: data.targetUplift > 0 ? `Target (${data.targetUplift.toFixed(1)})` : 'Riferimento',
+                        data: targetValues,
+                        borderColor: 'rgb(245, 158, 11)',
+                        borderDash: [8, 4],
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: getChartOptions(data.indicatorName, 'Baseline')
+        };
+    }
     
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.results.map(r => r.date),
-            datasets: [
-                {
-                    label: 'Control',
-                    data: data.results.map(r => r.control),
-                    borderColor: 'rgb(99, 102, 241)',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
-                },
-                {
-                    label: 'Variant',
-                    data: data.results.map(r => r.variant),
-                    borderColor: 'rgb(16, 185, 129)',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
-                },
-                {
-                    label: `Target (+${data.targetUplift}%)`,
-                    data: targetLine,
-                    borderColor: 'rgb(245, 158, 11)',
-                    backgroundColor: 'transparent',
-                    borderDash: [8, 4],
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0,
-                    fill: false
+    new Chart(ctx, chartConfig);
+});
+
+function getChartOptions(indicatorName, chartType) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: {
+                    usePointStyle: true,
+                    padding: 15,
+                    font: { size: 12, weight: 'bold' }
                 }
-            ]
+            },
+            title: {
+                display: true,
+                text: `${indicatorName} - ${chartType}`,
+                font: { size: 16, weight: 'bold' },
+                padding: { bottom: 20 }
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: { display: true, text: 'Valore' }
             },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 15,
-                        font: {
-                            size: 12,
-                            weight: 'bold'
-                        }
-                    }
-                },
-                title: {
-                    display: true,
-                    text: `${data.indicatorName} - Trend Temporale`,
-                    font: {
-                        size: 16,
-                        weight: 'bold'
-                    },
-                    padding: {
-                        bottom: 20
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    bodySpacing: 8,
-                    titleFont: {
-                        size: 14,
-                        weight: 'bold'
-                    },
-                    bodyFont: {
-                        size: 13
-                    },
-                    callbacks: {
-                        afterLabel: function(context) {
-                            if (context.datasetIndex < 2) {
-                                const idx = context.dataIndex;
-                                const delta = data.results[idx].delta;
-                                return `Delta: ${delta.toFixed(2)}%`;
-                            }
-                        },
-                        footer: function(tooltipItems) {
-                            const idx = tooltipItems[0].dataIndex;
-                            const variant = data.results[idx].variant;
-                            const target = data.results[idx].control * (1 + data.targetUplift / 100);
-                            
-                            if (variant >= target) {
-                                return 'Target raggiunto!';
-                            } else {
-                                const diff = ((target - variant) / target * 100).toFixed(1);
-                                return `Manca ${diff}% al target`;
-                            }
-                        }
-                    },
-                    footerFont: {
-                        size: 11,
-                        weight: 'bold'
-                    },
-                    footerColor: '#fbbf24'
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Valore',
-                        font: {
-                            size: 13,
-                            weight: 'bold'
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Data',
-                        font: {
-                            size: 13,
-                            weight: 'bold'
-                        }
-                    },
-                    grid: {
-                        display: false
-                    }
-                }
+            x: {
+                title: { display: true, text: 'Data' }
             }
         }
-    });
-});
+    };
+}
 </script>
 {% endblock %}
