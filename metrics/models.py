@@ -128,6 +128,99 @@ class Result(models.Model):
         # Aggiorna la decisione dell'esperimento
         self.indicator.experiment.update_decision()
     
+    # ========================================
+    # ✅ NUOVI METODI PER BASELINE GAP
+    # ========================================
+    
+    def get_baseline_gap(self):
+        """
+        Calcola il gap assoluto tra baseline e target per test_type='single'.
+        
+        Formula: gap = baseline_value - target_value
+        
+        Returns:
+            float: Gap assoluto (può essere positivo o negativo)
+            None: Se non è un test baseline o mancano dati
+        
+        Esempi:
+            baseline=70.0, target=68.0 → gap=+2.0 (sopra target ✅)
+            baseline=65.0, target=70.0 → gap=-5.0 (sotto target ⚠️)
+            baseline=50.0, target=0.0  → gap=0.0 (no target)
+        """
+        # Verifica che sia un test baseline
+        if self.indicator.test_type != 'single':
+            return None
+        
+        # Verifica che ci sia un valore baseline
+        if not self.value_control:
+            return None
+        
+        target_value = float(self.indicator.target_uplift or 0)
+        baseline_value = float(self.value_control)
+        
+        # Se target non configurato, gap = 0
+        if target_value == 0:
+            return 0.0
+        
+        # Calcola gap: baseline - target
+        gap = baseline_value - target_value
+        return round(gap, 2)
+    
+    def get_baseline_gap_percentage(self):
+        """
+        Calcola il gap percentuale rispetto al target per baseline.
+        
+        Formula: gap_% = (gap / target) × 100
+        
+        Returns:
+            float: Gap in percentuale
+            None: Se non è un test baseline o target=0
+        
+        Esempi:
+            baseline=70.0, target=68.0 → gap=+2.94%
+            baseline=65.0, target=70.0 → gap=-7.14%
+        """
+        # Verifica che sia un test baseline
+        if self.indicator.test_type != 'single':
+            return None
+        
+        target_value = float(self.indicator.target_uplift or 0)
+        
+        # Se target non configurato, gap% = 0
+        if target_value == 0:
+            return 0.0
+        
+        gap = self.get_baseline_gap()
+        
+        if gap is None:
+            return None
+        
+        # Calcola gap percentuale
+        gap_percentage = (gap / target_value) * 100
+        return round(gap_percentage, 2)
+    
+    def is_above_target(self):
+        """
+        Helper boolean: indica se la baseline è sopra il target.
+        
+        Returns:
+            bool: True se baseline ≥ target, False altrimenti
+            None: Se non è un test baseline o mancano dati
+        
+        Uso tipico nel template:
+            {% if result.is_above_target %}
+                <span class="text-success">Sopra target ✅</span>
+            {% else %}
+                <span class="text-danger">Sotto target ⚠️</span>
+            {% endif %}
+        """
+        gap = self.get_baseline_gap()
+        
+        if gap is None:
+            return None
+        
+        return gap >= 0
+    
     def __str__(self):
         return f"{self.indicator.name} - {self.measured_at}"
 
