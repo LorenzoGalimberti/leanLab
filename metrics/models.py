@@ -19,7 +19,6 @@ class Indicator(models.Model):
         ('secondary', 'Secondario'),
     ]
     
-    # ✅ NUOVO: Scelta del tipo di test
     TEST_TYPE_CHOICES = [
         ('ab_test', 'A/B Test (Control vs Variant)'),
         ('pre_post', 'Pre/Post Test (Before vs After)'),
@@ -33,7 +32,6 @@ class Indicator(models.Model):
     indicator_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='percentage')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='primary')
     
-    # ✅ NUOVO: Campo test_type
     test_type = models.CharField(
         max_length=20,
         choices=TEST_TYPE_CHOICES,
@@ -49,12 +47,21 @@ class Indicator(models.Model):
         verbose_name="Target Uplift %"
     )
     
-    # Campo per mapping BigQuery (già esistente, ottimo!)
+    # Campo per mapping BigQuery (già esistente)
     bigquery_metric_key = models.CharField(
         max_length=100,
         blank=True,
         help_text="Chiave per recuperare dati da MockBigQueryData (es: completion_rate, retention_d7)",
         verbose_name="Metric Key BigQuery"
+    )
+    
+    # 🔥 NUOVO CAMPO: Query SQL completa per BigQuery
+    bigquery_query = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Query BigQuery SQL",
+        help_text="Query SQL completa per calcolare automaticamente i valori. "
+                  "Deve restituire le colonne: valore_control, valore_variant, uplift_percentuale (opzionale)"
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -239,10 +246,6 @@ class DefinedEvent(models.Model):
         return self.alias
 
 
-# ========================================
-# MODEL: MockBigQueryData
-# ========================================
-
 class MockBigQueryData(models.Model):
     """
     Simula i dati aggregati che tornerebbero da BigQuery.
@@ -283,8 +286,8 @@ class MockBigQueryData(models.Model):
     value_variant = models.DecimalField(
         max_digits=12,
         decimal_places=4,
-        null=True,  # ✅ AGGIUNTO: permette NULL per baseline
-        blank=True,  # ✅ AGGIUNTO: permette form vuoto
+        null=True,
+        blank=True,
         help_text="Valore aggregato gruppo Variant (NULL per baseline)"
     )
     
