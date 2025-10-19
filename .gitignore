@@ -1,0 +1,4 @@
+# Ignora le credenziali locali
+credentials/
+*.json
+
